@@ -1,10 +1,13 @@
 package com.multiplatform.webview.web
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.view.ViewGroup
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -12,6 +15,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -65,7 +71,7 @@ fun AccompanistWebView(
     onCreated: (WebView) -> Unit = {},
     onDispose: (WebView) -> Unit = {},
     client: AccompanistWebViewClient = remember { AccompanistWebViewClient() },
-    chromeClient: AccompanistWebChromeClient = remember { AccompanistWebChromeClient() },
+    chromeClient: AccompanistWebChromeClient = remember { FileAccompanistWebChromeClient() },
     factory: ((Context) -> WebView)? = null,
 ) {
     BoxWithConstraints(modifier) {
@@ -160,6 +166,24 @@ fun AccompanistWebView(
     client.navigator = navigator
     chromeClient.state = state
 
+    // Initialize file chooser launcher inside the composable
+    val fileChooserLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // Handle the result for the specific instance
+        if(chromeClient is FileAccompanistWebChromeClient) {
+            if (result.resultCode == -1) {
+                val data: Intent? = result.data
+                chromeClient.uploadMessage?.onReceiveValue(
+                    WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+                )
+            } else {
+                chromeClient.uploadMessage?.onReceiveValue(null)
+            }
+            chromeClient.uploadMessage = null
+        }
+    }
+
     AndroidView(
         factory = { context ->
             (factory?.invoke(context) ?: WebView(context)).apply {
@@ -172,8 +196,11 @@ fun AccompanistWebView(
                 }
 
                 webChromeClient = chromeClient
-                webViewClient = client
+                if(chromeClient is FileAccompanistWebChromeClient){
+                    chromeClient.fileChooserLauncher = fileChooserLauncher
+                }
 
+                webViewClient = client
                 // Avoid covering other components
                 this.setLayerType(state.webSettings.androidWebSettings.layerType, null)
 
@@ -332,7 +359,11 @@ open class AccompanistWebViewClient : WebViewClient() {
         request: WebResourceRequest?,
     ): Boolean {
         KLogger.d {
-            "shouldOverrideUrlLoading: ${request?.url} ${request?.isForMainFrame} ${request?.isRedirect} ${request?.method}"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                "shouldOverrideUrlLoading: ${request?.url} ${request?.isForMainFrame} ${request?.isRedirect} ${request?.method}"
+            } else {
+                "shouldOverrideUrlLoading:  ${request?.url} ${request?.isForMainFrame}  ${request?.method}"
+            }
         }
         if (isRedirect || request == null || navigator.requestInterceptor == null) {
             isRedirect = false
@@ -375,6 +406,36 @@ open class AccompanistWebViewClient : WebViewClient() {
                 true
             }
         }
+    }
+}
+
+/** AccompanistWebChromeClient with FileChooserSupport **/
+class FileAccompanistWebChromeClient : AccompanistWebChromeClient() {
+
+    // Each instance of FileAccompanistWebChromeClient will have its own uploadMessage
+    var uploadMessage: ValueCallback<Array<Uri>>? = null
+
+    lateinit var fileChooserLauncher: ActivityResultLauncher<Intent>
+        internal set
+
+    override fun onShowFileChooser(
+        webView: WebView,
+        filePathCallback: ValueCallback<Array<Uri>>,
+        fileChooserParams: FileChooserParams
+    ): Boolean {
+        // Store the filePathCallback for this specific instance
+        uploadMessage = filePathCallback
+
+        // Create an intent to open the file chooser
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"  // Change to "image/*" if you only want to accept images
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)  // Disable multiple file selection
+        }
+
+        // Launch the file chooser using the ActivityResultLauncher for this instance
+        fileChooserLauncher.launch(Intent.createChooser(intent, "Select Image"))
+        return true
     }
 }
 

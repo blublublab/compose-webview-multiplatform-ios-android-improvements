@@ -121,6 +121,29 @@ class WKNavigationDelegate(
         KLogger.info {
             "Outer decidePolicyForNavigationAction: $url $isRedirect $decidePolicyForNavigationAction"
         }
+        if (decidePolicyForNavigationAction.targetFrame == null && url != null) {
+            KLogger.info { "Opening URL in new tab or window (blank target frame): $url" }
+
+            val openUrlInNewWindowScript = """
+            var newWindow = window.open('$url', '_blank');
+            if (newWindow) {
+                newWindow.focus();
+            } else {
+                window.location.href = '$url';
+            }
+        """.trimIndent()
+
+            webView.evaluateJavaScript(openUrlInNewWindowScript) { _, error ->
+                if (error != null) {
+                    KLogger.e { "Error opening URL in new window: ${error.localizedDescription}" }
+                } else {
+                    KLogger.info { "URL successfully opened in new window or current window: $url" }
+                }
+            }
+
+            decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyCancel)
+            return
+        }
         if (url != null && !isRedirect &&
             navigator.requestInterceptor != null &&
             decidePolicyForNavigationAction.targetFrame?.mainFrame == true

@@ -1,5 +1,6 @@
 package com.kevinnzou.sample
 
+import OfferTest
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +51,9 @@ internal fun WebViewApp() {
         composable("intercept") {
             InterceptRequestSample(controller)
         }
+        composable("offertest") {
+            OfferTest()
+        }
     }
 }
 
@@ -82,6 +86,12 @@ fun MainScreen(controller: NavController) {
             controller.navigate("intercept")
         }) {
             Text("Intercept Request Sample", fontSize = 18.sp)
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(onClick = {
+            controller.navigate("offertest")
+        }) {
+            Text("SlotCity", fontSize = 18.sp)
         }
     }
 }
