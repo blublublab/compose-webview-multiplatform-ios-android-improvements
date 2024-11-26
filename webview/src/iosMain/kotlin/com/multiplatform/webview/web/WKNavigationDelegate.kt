@@ -121,7 +121,7 @@ class WKNavigationDelegate(
         KLogger.info {
             "Outer decidePolicyForNavigationAction: $url $isRedirect $decidePolicyForNavigationAction"
         }
-        if (decidePolicyForNavigationAction.targetFrame == null && url != null) {
+    /*    if (decidePolicyForNavigationAction.targetFrame == null && url != null) {
             KLogger.info { "Opening URL in new tab or window (blank target frame): $url" }
 
             val openUrlInNewWindowScript = """
@@ -144,6 +144,7 @@ class WKNavigationDelegate(
             decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyCancel)
             return
         }
+        */
         if (url != null && !isRedirect &&
             navigator.requestInterceptor != null &&
             decidePolicyForNavigationAction.targetFrame?.mainFrame == true

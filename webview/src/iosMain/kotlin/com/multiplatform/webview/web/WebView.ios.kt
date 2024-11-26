@@ -71,8 +71,8 @@ fun IOSWebView(
             )
         }
     val navigationDelegate = remember { WKNavigationDelegate(state, navigator) }
+    val wkUiDelegate  = remember { WKUIDelegate(state) }
     val scope = rememberCoroutineScope()
-
     UIKitView(
         factory = {
             val config =
@@ -81,6 +81,7 @@ fun IOSWebView(
                     defaultWebpagePreferences.allowsContentJavaScript =
                         state.webSettings.isJavaScriptEnabled
                     preferences.apply {
+                        javaScriptCanOpenWindowsAutomatically = state.webSettings.isJavaScriptEnabled
                         setValue(
                             state.webSettings.allowFileAccessFromFileURLs,
                             forKey = "allowFileAccessFromFileURLs",
@@ -103,7 +104,7 @@ fun IOSWebView(
                     observer = observer,
                 )
                 this.navigationDelegate = navigationDelegate
-
+                this.setUIDelegate(wkUiDelegate)
                 state.webSettings.let {
                     val backgroundColor =
                         (it.iOSWebSettings.backgroundColor ?: it.backgroundColor).toUIColor()
